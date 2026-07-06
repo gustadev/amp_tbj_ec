@@ -1,17 +1,27 @@
 #%%
 import numpy as np
+import control as ct
+import matplotlib.pyplot as plt
 
+# def prl(a):
+#     rt = 0 
+#     for i in a:
+#         if i > 0:
+#             rt += 1/i
+#     return 1/rt
+def prl(elementos):
+    rt = 0
 
-def prl(a):
-    rt = 0 
-    for i in a:
-        rt += 1/i
+    for z in elementos:
+        if z is None:
+            continue
+        rt += 1/z
+
     return 1/rt
-
 
 def projeto_EC(
     Vss=12,
-    hfe=150,
+    hfe=160,
     Rs=50,
     Vce=6,
     Ic=1e-3,
@@ -19,9 +29,10 @@ def projeto_EC(
     fator_divisor=10,
     fL = 150,
     Rl = 3.3e3,
-    fT = 120e6,
+    fT = 170e6,
     Cmu = 5e-12,
-    fH = 170e3
+    fH = 170e3,
+    Re_dc = 0
 ):
 
     # Constantes
@@ -53,13 +64,16 @@ def projeto_EC(
     Rb = prl([R1,R2])
 
     # Ganho aproximado (Re bypassado)
-    Av = -gm * Rc
+    Zin = prl([
+        Rb,
+        hie + (hfe+1)*Re_dc
+    ])
+    Av = -hfe * prl([Rc,Rl]) / (hie + (hfe + 1)*Re_dc)
 
-    Zin = prl([Rb,hie])
     #Rce = prl([Re,(hie+prl([Rs,R1,R2])/hfe)])#prl([(Rb+hie)/hfe,Re])
     Rce = prl([
-        Re,
-        hie/hfe + prl([Rs,Rb])/(hfe+1)
+        Re-Re_dc,
+        hie/hfe + Re_dc + prl([Rs,Rb])/(hfe+1)
     ])
     Rci = Zin + Rs
     Rco = Rc + Rl
@@ -77,13 +91,46 @@ def projeto_EC(
     Cpi = Ctotal - Cmu
     Cin = Cpi + Cmu*(1-Av)
     Cout = Cmu*(1-1/Av)
-    Rin = prl([Rs,R1,R2,hie/hfe])
+    Rin = prl([
+        Rs,
+        R1,
+        R2,
+        hie + (hfe+1)*Re_dc
+    ])
     Rout = prl([Rc,Rl])
     fH_in = 1/(2*np.pi*Rin*Cin)
     fH_out = 1/(2*np.pi*Rout*Cout)
     CL = 1/(2*np.pi*Rout*fH)
 
+    #-----------------------------------
+    # Modelo Altas Frequencias
+    #------------------------------------
 
+    s = ct.TransferFunction.s
+    rx = 25
+    gx = 1/rx
+    Gs = 1/Rs
+    Gb = 1/Rb
+    RL = prl([prl([Rc,Rl]),1/(s*CL)])
+
+    # if Re_dc == 0:
+    #     Ra = prl([RL,hie,(rx+prl([Rs,Rb]))])
+    #     b = (1/(RL*Cmu)) + ((1 + gm*Ra)/(Ra*Cpi))
+    #     c = 1/(prl([hie,(rx + prl([Rs,Rb]))])*RL*Cmu*Cpi)
+    #     Avs = (-gx*Gs/((gx+Gs+Gb)*Cmu*Cpi)) * ((gm - s*Cmu)/(s*s + b*s + c))
+    # else:
+    #     b1 = (1 + gm*Re_dc)/(Re_dc*Cpi)
+    #     c1 = -gm/(Re_dc*Cmu*Cpi)
+    #     b2 = ((1 + gm*(rx + Re_dc))/((rx + Re_dc)*Cpi)+ 1/(RL*Cmu))
+    #     c2 = (1 + gm*Re_dc)/((rx + Re_dc)*RL*Cmu*Cpi)
+    #     Avs = (Rb/(Rb+Rs))*(Re_dc/(rx+Re_dc))*(s*s + b1*s + c1)/(s*s + b2*s + c2)
+    Ra = prl([RL,hie,(rx+prl([Rs,Rb]))])
+    b = (1/(RL*Cmu)) + ((1 + gm*Ra)/(Ra*Cpi))
+    c = 1/(prl([hie,(rx + prl([Rs,Rb]))])*RL*Cmu*Cpi)
+    Avs = (-gx*Gs/((gx+Gs+Gb)*Cmu*Cpi)) * ((gm - s*Cmu)/(s*s + b*s + c))
+    if Re_dc > 0:
+        Avs =(s*Cmu*(gm + 1/hie + 1/Re_dc + s*Cpi) - gm/Re_dc)/((1/RL + s*Cmu)*(gm + 1/hie + 1/Re_dc + s*Cpi))
+        # Avs = Avs/(1+Avs*Re_dc)
     print("--------------------------------")
     print("Projeto DC")
     print("--------------------------------")
@@ -105,7 +152,7 @@ def projeto_EC(
     print(f"gm   = {gm:.4f} S")
     print(f"re   = {re:.2f}Ω")
     print(f"hie  = {hie:.2f}Ω")
-    print(f"Av(Max)   = {Av:.2f}V/V")
+    print(f"Av   = {Av:.2f}V/V")
     print()
     print(f"Zin = {Zin:.3e}Ω")
     print(f"Rce = {Rce:.3e}Ω")
@@ -132,19 +179,66 @@ def projeto_EC(
     print(f"fH ≈ {min(fH_in,fH_out)*1e-6:.2f}MHz")
     print("--------------------------------")
 
+    print("Funcao de transferencia:")
+    print(Avs)
+    print()
+
+    return Avs
+
 #%%
 if __name__ == "__main__":
     print("----- Primeiro Estagio ------")
-    projeto_EC(
+    Avs1 = projeto_EC(
         Ic=1e-3,
         Ve=0.5,
-        Vce=6
+        Vce=6,
+        Rl = 1.383e4,
+        hfe=170,
+        fH = 6.3e3#20e6
     )
     print("----- Segundo Estagio ------")
-    projeto_EC(
-        Ic=10e-3,
-        Ve=3,
-        Vce=7
+    Avs2 = projeto_EC(
+        Ic=1.5e-3,
+        Ve=1,
+        Vce=5,
+        Rs = 5500,
+        fH= 20e6,#6.3e3,
+        Re_dc=600,
+        hfe=170
     )
+    AvsT = Avs1 * Avs2
+    print(f"Avs1: {ct.dcgain(Avs1)}")
+    print(f"Avs2: {ct.dcgain(Avs2)}")
+    print(f"AvsT: {ct.dcgain(AvsT)}")
 
+    sistema = ct.TransferFunction(AvsT)
+    FT1 = ct.TransferFunction(Avs1)
+    FT2 = ct.TransferFunction(Avs2)
+
+    print("Funcao de transferencia:")
+    print(sistema)
+
+    ct.bode_plot(
+        FT1,
+        label="Av Primeiro Estagio",
+        dB=True,
+        deg=True,
+        grid=True,
+        )
+    # ct.bode_plot(
+    #     FT2,
+    #     label="Av Segundo Estagio",
+    #     dB=True,
+    #     deg=True,
+    #     grid=True,
+    #     )
+    # ct.bode_plot(
+    #     sistema,
+    #     label="Av Total",
+    #     dB=True,
+    #     deg=True,
+    #     grid=True,
+    #     )
+
+    plt.show()
 # %%
