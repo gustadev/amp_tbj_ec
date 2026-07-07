@@ -111,7 +111,7 @@ def projeto_EC(
     gx = 1/rx
     Gs = 1/Rs
     Gb = 1/Rb
-    RL = prl([prl([Rc,Rl]),1/(s*CL)])
+    RL = prl([Rc,Rl,1/(s*CL)])
 
     # if Re_dc == 0:
     #     Ra = prl([RL,hie,(rx+prl([Rs,Rb]))])
@@ -124,13 +124,17 @@ def projeto_EC(
     #     b2 = ((1 + gm*(rx + Re_dc))/((rx + Re_dc)*Cpi)+ 1/(RL*Cmu))
     #     c2 = (1 + gm*Re_dc)/((rx + Re_dc)*RL*Cmu*Cpi)
     #     Avs = (Rb/(Rb+Rs))*(Re_dc/(rx+Re_dc))*(s*s + b1*s + c1)/(s*s + b2*s + c2)
-    Ra = prl([RL,hie,(rx+prl([Rs,Rb]))])
-    b = (1/(RL*Cmu)) + ((1 + gm*Ra)/(Ra*Cpi))
-    c = 1/(prl([hie,(rx + prl([Rs,Rb]))])*RL*Cmu*Cpi)
-    Avs = (-gx*Gs/((gx+Gs+Gb)*Cmu*Cpi)) * ((gm - s*Cmu)/(s*s + b*s + c))
     if Re_dc > 0:
-        Avs =(s*Cmu*(gm + 1/hie + 1/Re_dc + s*Cpi) - gm/Re_dc)/((1/RL + s*Cmu)*(gm + 1/hie + 1/Re_dc + s*Cpi))
+        a = prl([hie,1/(s*Cpi)])/(prl([hie,1/(s*Cpi)])+Re*hfe)
+        b = hfe/prl([hie,1/(s*Cpi)])
+        Avs = -a*(s*Cmu + b)/(s*Cmu + 1/Rc + 1/Rl)
+        # Avs =(s*Cmu*(gm + 1/hie + 1/Re_dc + s*Cpi) - gm/Re_dc)/((1/RL + s*Cmu)*(gm + 1/hie + 1/Re_dc + s*Cpi))
         # Avs = Avs/(1+Avs*Re_dc)
+    else:
+        Ra = prl([RL,hie,(rx+prl([Rs,Rb]))])
+        b = (1/(RL*Cmu)) + ((1 + gm*Ra)/(Ra*Cpi))
+        c = 1/(prl([hie,(rx + prl([Rs,Rb]))])*RL*Cmu*Cpi)
+        Avs = (-gx*Gs/((gx+Gs+Gb)*Cmu*Cpi)) * ((gm - s*Cmu)/(s*s + b*s + c))
     print("--------------------------------")
     print("Projeto DC")
     print("--------------------------------")
@@ -202,7 +206,7 @@ if __name__ == "__main__":
         Ve=1,
         Vce=5,
         Rs = 5500,
-        fH= 20e6,#6.3e3,
+        fH= 6.3e20,#6.3e3,
         Re_dc=600,
         hfe=170
     )
@@ -215,16 +219,20 @@ if __name__ == "__main__":
     FT1 = ct.TransferFunction(Avs1)
     FT2 = ct.TransferFunction(Avs2)
 
+    print()
     print("Funcao de transferencia:")
     print(sistema)
 
-    ct.bode_plot(
-        FT1,
-        label="Av Primeiro Estagio",
-        dB=True,
-        deg=True,
-        grid=True,
-        )
+    print()
+    print(f"Polos = {sistema.poles()}")
+    plt.figure(figsize=(11, 7))
+    # ct.bode_plot(
+    #     FT1,
+    #     label="Av Primeiro Estagio",
+    #     dB=True,
+    #     deg=True,
+    #     grid=True,
+    #     )
     # ct.bode_plot(
     #     FT2,
     #     label="Av Segundo Estagio",
@@ -232,13 +240,14 @@ if __name__ == "__main__":
     #     deg=True,
     #     grid=True,
     #     )
-    # ct.bode_plot(
-    #     sistema,
-    #     label="Av Total",
-    #     dB=True,
-    #     deg=True,
-    #     grid=True,
-    #     )
+    ct.bode_plot(
+        sistema,
+        np.logspace(3, 10, 1000000),
+        label="Av Total",
+        dB=True,
+        deg=True,
+        grid=True,
+        )
 
     plt.show()
 # %%
