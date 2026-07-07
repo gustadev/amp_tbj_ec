@@ -135,6 +135,7 @@ def projeto_EC(
         b = (1/(RL*Cmu)) + ((1 + gm*Ra)/(Ra*Cpi))
         c = 1/(prl([hie,(rx + prl([Rs,Rb]))])*RL*Cmu*Cpi)
         Avs = (-gx*Gs/((gx+Gs+Gb)*Cmu*Cpi)) * ((gm - s*Cmu)/(s*s + b*s + c))
+        Avs = Avs * (s**2 / ((s + 1/(Rce*Ce) + 1/(Rci*Ci))*(s + 1/(Rco*Co))))
     print("--------------------------------")
     print("Projeto DC")
     print("--------------------------------")
@@ -205,12 +206,16 @@ if __name__ == "__main__":
         Ic=1.5e-3,
         Ve=1,
         Vce=5,
-        Rs = 5500,
-        fH= 6.3e20,#6.3e3,
+        Rs = 0.000000001,
+        fH= 6.3e3,#6.3e3,
         Re_dc=600,
         hfe=170
     )
-    AvsT = Avs1 * Avs2
+
+    s = ct.TransferFunction.s
+    #AvLP = s*s*s*s*s / ((s - 2*np.pi*150)*(s - 2*np.pi*150)*(s - 2*np.pi*15)*(s - 2*np.pi*15)*(s - 2*np.pi*15))
+
+    AvsT = Avs1 * Avs2 #* AvLP
     print(f"Avs1: {ct.dcgain(Avs1)}")
     print(f"Avs2: {ct.dcgain(Avs2)}")
     print(f"AvsT: {ct.dcgain(AvsT)}")
@@ -218,13 +223,39 @@ if __name__ == "__main__":
     sistema = ct.TransferFunction(AvsT)
     FT1 = ct.TransferFunction(Avs1)
     FT2 = ct.TransferFunction(Avs2)
+    
 
     print()
     print("Funcao de transferencia:")
     print(sistema)
 
     print()
-    print(f"Polos = {sistema.poles()}")
+    polos = sistema.poles()
+    zeros = sistema.zeros()
+    print(f"Polos = {polos}")
+    print("Lista de polos:")
+    for i, polo in enumerate(polos, start=1):
+        modulo = np.abs(polo)
+        angulo_deg = np.angle(polo, deg=True)
+        frequencia_hz = modulo / (2*np.pi)
+        if frequencia_hz < 1e3 :
+            print(f"p{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz:.4e} Hz")
+        elif frequencia_hz < 1e6 :
+            print(f"p{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz*1e-3:.4e} kHz")
+        elif frequencia_hz < 1e9 :
+            print(f"p{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz*1e-6:.4e} MHz")
+    
+    for i, zero in enumerate(zeros, start=1):
+        modulo = np.abs(zero)
+        angulo_deg = np.angle(zero, deg=True)
+        frequencia_hz = modulo / (2*np.pi)
+        if frequencia_hz < 1e3 :
+            print(f"z{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz:.4e} Hz")
+        elif frequencia_hz < 1e6 :
+            print(f"z{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz*1e-3:.4e} kHz")
+        elif frequencia_hz < 1e9 :
+            print(f"z{i} : {modulo:.4e} ∠ {angulo_deg:.2f}° : {frequencia_hz*1e-6:.4e} MHz")
+
     plt.figure(figsize=(11, 7))
     # ct.bode_plot(
     #     FT1,
@@ -240,13 +271,15 @@ if __name__ == "__main__":
     #     deg=True,
     #     grid=True,
     #     )
+    frequencias_hz = np.logspace(0, 8, 1000000)
     ct.bode_plot(
         sistema,
-        np.logspace(3, 10, 1000000),
+        2*np.pi*frequencias_hz,
         label="Av Total",
         dB=True,
         deg=True,
-        grid=True,
+        Hz=True,
+        grid=True
         )
 
     plt.show()
