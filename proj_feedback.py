@@ -23,8 +23,8 @@ import numpy as np
 
 s = ct.TransferFunction.s
 
-zeros = -2.046e-60*s**6 + 1.583e-50*s**5 + 2.535e-43*s**4 + 1.232e-36*s**3 + 1.636e-30*s**2
-polos = 2.372e-74*s**8 + 1.191e-65*s**7 + 1.173e-57*s**6 + 1.689e-50*s**5 + 8.001e-44*s**4 + 1.075e-37*s**3 + 4.236e-33*s**2 + 4.663e-30*s + 4.02e-28
+zeros =  9.05e-36*s**8 + 2.405e-28*s**7 + 2.395e-21*s**6 + 1.06e-14*s**5 + 1.757e-08*s**4
+polos = 3.165e-55*s**10 + 1.568e-46*s**9 + 1.683e-38*s**8 + 4.074e-31*s**7 + 4.127e-24*s**6 + 1.913e-17*s**5 + 3.363e-11*s**4 + 4.308e-08*s**3 + 1.407e-05*s**2 + 0.0001717*s + 0.0005342
 
 
 G = zeros/polos
@@ -36,7 +36,10 @@ def main():
     print(sistema)
     
     plt.figure(figsize=(11, 7))
-    frequencias_hz = np.logspace(0, 8, 1000000)
+    frequencias_hz = np.logspace(0, 12, 1000000)
+
+    sistema = sistema.feedback(0.0031)
+
     ct.bode_plot(
         sistema,
         2*np.pi*frequencias_hz,
@@ -45,7 +48,7 @@ def main():
         deg=True,
         Hz=True,
         grid=True,
-        display_margins="overlay"
+        # display_margins="overlay"
         )
 
     plt.show()
